@@ -208,3 +208,4 @@ __marimo__/
 
 # my
 samples/
+.mcp_cache/

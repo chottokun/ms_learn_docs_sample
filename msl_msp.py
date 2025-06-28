@@ -1,13 +1,17 @@
 import httpx
 import json
+import diskcache
 
 MCP_ENDPOINT = "https://learn.microsoft.com/api/mcp"
+cache = diskcache.Cache(".mcp_cache")
+
+def cache_key(query, endpoint, timeout):
+    return f"{query}|{endpoint}|{timeout}"
 
 async def mcp_docs_search(query: str, endpoint: str = MCP_ENDPOINT, timeout: float = 15.0):
-    """
-    Microsoft Learn MCPエンドポイントにクエリを投げ、検索結果リストを返す。
-    RAG等の他プロジェクトからも利用できるよう汎用化。
-    """
+    key = cache_key(query, endpoint, timeout)
+    if key in cache:
+        return cache[key]
     payload = {
         "jsonrpc": "2.0",
         "method": "tools/call",
@@ -21,13 +25,12 @@ async def mcp_docs_search(query: str, endpoint: str = MCP_ENDPOINT, timeout: flo
     async with httpx.AsyncClient(timeout=timeout) as client:
         async with client.stream("POST", endpoint, json=payload) as response:
             async for line in response.aiter_lines():
-                # 'data:' プレフィックスを削除
                 if line.startswith('data: '):
                     line_stripped = line[len('data: '):].lstrip()
                 else:
                     line_stripped = line.lstrip()
                 if not line_stripped or not line_stripped.startswith('{'):
-                    continue  # JSONで始まらない行は完全にスキップ
+                    continue
                 try:
                     chunk = json.loads(line_stripped)
                     result = chunk.get("result")
@@ -50,13 +53,15 @@ async def mcp_docs_search(query: str, endpoint: str = MCP_ENDPOINT, timeout: flo
                         else:
                             results.append(result)
                 except Exception:
-                    continue  # JSONデコード失敗行はスキップ
-
-    # 平坦化
+                    continue
     final_results = []
     for item in results:
         if isinstance(item, list):
             final_results.extend(item)
         else:
             final_results.append(item)
+    cache.set(key, final_results, expire=3600)
     return final_results
+
+async def clear_mcp_cache():
+    cache.clear()
