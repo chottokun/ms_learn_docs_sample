@@ -1,5 +1,5 @@
 # 目的
-Microsoft Learn Docs MCP serverを利用したQAシステム（Retrieval-Augmented Generation, RAG）を構築するサンプルです。
+Microsoft Learn Docs MCP serverを利用した検索のサンプルです。
 
 ## 概要
 - Microsoft Learn Docs MCP serverに対してキーワード検索を行い、公式ドキュメントから関連情報を取得します。
